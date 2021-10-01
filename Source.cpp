@@ -4,10 +4,55 @@
 #include <ctime>
 #include <windows.h>
 
+enum class TileType
+{
+	Road,
+	Start,
+	Finish,
+	Blocking,
+	Field
+};
+
+enum class RoadType
+{
+	None,
+	Straight,
+	Turn,
+	T_junction,
+	Crossroad
+};
+
+enum class EventType
+{
+	None,
+	Enemy,
+	Start,
+	Finish,
+	Event,
+	Equipment
+};
+
+enum class SideType
+{
+	Up,
+	Down,
+	Left,
+	Right
+};
+
 struct direction
 {
 	int x;
 	int y;
+};
+
+struct TileInfo
+{
+	direction position = {0, 0};
+	TileType tileType = TileType::Field;
+	RoadType roadType = RoadType::None;
+	//EventType eventType = EventType::None;
+	float rotateAngle = 0.0;
 };
 
 void SetColor(int text, int bg) {
@@ -16,6 +61,15 @@ void SetColor(int text, int bg) {
 }
 
 void resizeGrid(std::vector<std::vector <int>>& tileGrid, int size)
+{
+	tileGrid.resize(size);
+	for (int i = 0; i < size; i++)
+	{
+		tileGrid[i].resize(size);
+	}
+}
+
+void resizeGrid(std::vector<std::vector <TileInfo>>& tileGrid, int size)
 {
 	tileGrid.resize(size);
 	for (int i = 0; i < size; i++)
@@ -141,7 +195,7 @@ void structNewRoad(std::vector<std::vector <int>>& tileGrid, std::vector<directi
 		}
 	}
 }
-/*
+
 void printPositions(const std::vector<direction>& currentRoad)
 {
 	for (const auto& elem : currentRoad)
@@ -149,7 +203,7 @@ void printPositions(const std::vector<direction>& currentRoad)
 		std::cout << "x = "<< elem.x << " y = " << elem.y << std::endl;
 	}
 	std::cout << std::endl;
-}*/
+}
 
 void printRoad(std::vector<std::vector <int>>& tileGrid, std::vector<direction>& currentRoad)
 {
@@ -166,8 +220,117 @@ void printRoad(std::vector<std::vector <int>>& tileGrid, std::vector<direction>&
 	}
 }
 
+void clearRoadFromStartFinish(std::vector<direction>& currentRoad)
+{
+	currentRoad.pop_back(); // erase finish
+	currentRoad.erase(currentRoad.begin());
+}
+
+std::vector<direction> generateRoad(std::vector<std::vector <int>>& tileGrid, direction start, direction finish)
+{
+	std::vector<direction> currentRoad;
+	int attempts = 100;
+	bool success = false;
+	while (attempts <= 0 || !success)
+	{
+		structNewRoad(tileGrid, currentRoad, start, finish, success);
+		if (success)
+		{
+			//std::cout << std::endl << std::endl;
+			//std::cout << "Calculated road" << std::endl;
+			//printRoad(tileGrid, currentRoad);
+			//std::cout << "attempts have: " << attempts;
+			break;
+		}
+		else
+		{
+			attempts--;
+			fillGridRandom(tileGrid, 20);
+			setStartFinish(tileGrid, start, finish);
+		}
+	}
+	return currentRoad;
+}
+
+void fillTileTypesGrid(std::vector<std::vector <TileInfo>>& tileGrid, std::vector<direction>& currentRoad, direction start, direction finish)
+{
+	for (int i = 0; i < tileGrid.size(); i++)
+	{
+		for (int j = 0; j < tileGrid[i].size(); j++)
+		{
+			if (isTileRoad({ i,j }, currentRoad))
+			{
+				if ((isPositionEqual(currentRoad[i], start)))
+				{
+					tileGrid[i][j].tileType = TileType::Start;
+				}
+				else if (isPositionEqual(currentRoad[i], finish))
+				{
+					tileGrid[i][j].tileType = TileType::Finish;
+				}
+				else
+				{
+					tileGrid[i][j].tileType = TileType::Road;
+				}
+			}
+			else
+			{
+				tileGrid[i][j].tileType = TileType::Field;
+			}
+		}
+	}
+}
+
+SideType recognizeSideType(direction target, direction current)
+{
+	if (target.x != current.x)
+	{
+		if (current.x < target.x)
+			return SideType::Up;
+		else
+			return SideType::Down;
+	}
+	else
+	{
+		if (current.y < target.y)
+			return SideType::Right;
+		else
+			return SideType::Left;
+	}
+}
+
+void recognizeRoadTypes(std::vector<direction>& currentRoad, std::vector<RoadType>& roadTypes, direction start, direction finish, bool& success)
+{
+	for (int i = 0; i < currentRoad.size(); i++)
+	{
+		if ((isPositionEqual(currentRoad[i], start) || (isPositionEqual(currentRoad[i], finish)))) // first and last roads - start and finish
+		{
+			roadTypes[i] = RoadType::None;
+			continue;
+		}
+		
+		SideType roadSide = recognizeSideType(currentRoad[i - 1], currentRoad[i]);
+		switch (roadSide)
+		{
+		case SideType::Up:
+			roadTypes[i] = RoadType::Straight;
+			break;
+		case SideType::Down:
+			break;
+		case SideType::Left:
+			break;
+		case SideType::Right:
+			break;
+		default:
+			break;
+		}
+
+	}
+}
+
 void testStructRoad(std::vector<std::vector <int>>& tileGrid, std::vector<direction>& currentRoad, direction start, direction finish)
 {
+
 	int countPassed = 0;
 	int countFailed = 0;
 	for (int i = 0; i < 10000; i++)
@@ -197,44 +360,34 @@ void testStructRoad(std::vector<std::vector <int>>& tileGrid, std::vector<direct
 	std::cout << "Failed = " << countFailed << std::endl;
 }
 
+
 int main()
 {
 	int size = 5;
-	std::vector<std::vector <int>> tileGrid;
+	std::vector<std::vector <int>> numericGrid;
 	std::vector<direction> currentRoad;
+	std::vector<RoadType> RoadTypes;
+	std::vector<std::vector<TileInfo>> tileGrid;
 	srand(time(NULL));
 	direction start = { 0, size - 2 };
 	direction finish = { size - 1, 2 };
 	
-
+	//init
+	resizeGrid(numericGrid, size);
 	resizeGrid(tileGrid, size);
-	fillGridRandom(tileGrid, 19);
-	setStartFinish(tileGrid, start, finish);
-
-	std::cout << "Our tile grid" << std::endl;
-	printGrid(tileGrid);
 
 
-	int attempts = 100;
+	// tile type
+	fillGridRandom(numericGrid, 19);
+	setStartFinish(numericGrid, start, finish);
+	currentRoad = generateRoad(numericGrid, start, finish); // start and finish inside road (need to recognize angle rotate first road
+	fillTileTypesGrid(tileGrid, currentRoad, start, finish);
+
+	// road type
+	RoadTypes.clear();
+	RoadTypes.resize(currentRoad.size());
 	bool success = false;
-	while (attempts <= 0 || !success)
-	{
-		structNewRoad(tileGrid, currentRoad, start, finish, success);
-		if (success)
-		{
-			std::cout << std::endl << std::endl;
-			std::cout << "Calculated road" << std::endl;
-			printRoad(tileGrid, currentRoad);
-			std::cout << "attempts have: " << attempts;
-			break;
-		}
-		else
-		{
-			attempts--;
-			fillGridRandom(tileGrid, 20);
-			setStartFinish(tileGrid, start, finish);
-		}
-	}
+	recognizeRoadTypes(currentRoad, RoadTypes, start, finish, success);
 
 	return 0;
 }
