@@ -32,7 +32,7 @@ enum class EventType
 	Equipment
 };
 
-enum class SideType
+enum SideType
 {
 	Up,
 	Down,
@@ -236,10 +236,10 @@ std::vector<direction> generateRoad(std::vector<std::vector <int>>& tileGrid, di
 		structNewRoad(tileGrid, currentRoad, start, finish, success);
 		if (success)
 		{
-			//std::cout << std::endl << std::endl;
-			//std::cout << "Calculated road" << std::endl;
-			//printRoad(tileGrid, currentRoad);
-			//std::cout << "attempts have: " << attempts;
+			std::cout << std::endl << std::endl;
+			std::cout << "Calculated road" << std::endl;
+			printRoad(tileGrid, currentRoad);
+			std::cout << "attempts have: " << attempts;
 			break;
 		}
 		else
@@ -281,6 +281,7 @@ void fillTileTypesGrid(std::vector<std::vector <TileInfo>>& tileGrid, std::vecto
 	}
 }
 
+///
 SideType recognizeSideType(direction target, direction current)
 {
 	if (target.x != current.x)
@@ -298,32 +299,86 @@ SideType recognizeSideType(direction target, direction current)
 			return SideType::Left;
 	}
 }
+///
 
-void recognizeRoadTypes(std::vector<direction>& currentRoad, std::vector<RoadType>& roadTypes, direction start, direction finish, bool& success)
+void recognizeRoadRotateAngle()
+{
+
+}
+
+bool isRoadThisSide(std::vector<std::vector<TileInfo>>& tileGrid, direction currentPosition, SideType SelectedSide)
+{
+	bool success = false;
+	int x_offset = 0;
+	int y_offset = 0;
+	switch (SelectedSide)
+	{
+	case Up:
+		x_offset = 1;
+		y_offset = 0;
+		break;
+	case Down:
+		x_offset = -1;
+		y_offset = 0;
+		break;
+	case Left:
+		x_offset = 0;
+		y_offset = -1;
+		break;
+	case Right:
+		x_offset = 0;
+		y_offset = 1;
+		break;
+	default:
+		break;
+	}
+
+	direction newPositionOffset = { currentPosition.x + x_offset, currentPosition.y + y_offset };
+
+	if (isValidTile(newPositionOffset, tileGrid.size()))
+	{
+		if (tileGrid[newPositionOffset.x][newPositionOffset.y].tileType == TileType::Road ||
+			tileGrid[newPositionOffset.x][newPositionOffset.y].tileType == TileType::Start ||
+			tileGrid[newPositionOffset.x][newPositionOffset.y].tileType == TileType::Finish)
+		{
+			success = true;
+		}
+		else
+		{
+			success = false;
+		}
+	}
+	else
+	{
+		success = false;
+	}
+	return success;
+}
+
+
+void recognizeRoadTypes(std::vector<direction>& currentRoad, std::vector<std::vector<TileInfo>>& tileGrid, direction start, direction finish, bool& success)
 {
 	for (int i = 0; i < currentRoad.size(); i++)
 	{
 		if ((isPositionEqual(currentRoad[i], start) || (isPositionEqual(currentRoad[i], finish)))) // first and last roads - start and finish
 		{
-			roadTypes[i] = RoadType::None;
+			tileGrid[currentRoad[i].x][currentRoad[i].y].roadType = RoadType::None;
+			tileGrid[currentRoad[i].x][currentRoad[i].y].rotateAngle = 0.0;
 			continue;
 		}
 		
-		SideType roadSide = recognizeSideType(currentRoad[i - 1], currentRoad[i]);
-		switch (roadSide)
-		{
-		case SideType::Up:
-			roadTypes[i] = RoadType::Straight;
-			break;
-		case SideType::Down:
-			break;
-		case SideType::Left:
-			break;
-		case SideType::Right:
-			break;
-		default:
-			break;
-		}
+		int roadSides = 0;
+		
+		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Right))
+			roadSides |= SideType::Right;
+		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Left))
+			roadSides |= SideType::Left;
+		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Up))
+			roadSides |= SideType::Up;
+		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Down))
+			roadSides |= SideType::Down;
+		
+		
 
 	}
 }
@@ -361,6 +416,39 @@ void testStructRoad(std::vector<std::vector <int>>& tileGrid, std::vector<direct
 }
 
 
+void printtilestype(std::vector<std::vector<TileInfo>> tileGrid)
+{
+	std::cout << std::endl;
+	for (const auto& row : tileGrid)
+	{
+		for (const auto& elem : row)
+		{
+			switch (elem.tileType)
+			{
+			case TileType::Start:
+				std::cout << "start" << '\t';
+				break;
+			case TileType::Finish:
+				std::cout << "finish" << '\t';
+				break;
+			case TileType::Road:
+				std::cout << "road" << '\t';
+				break;
+			case TileType::Blocking:
+				std::cout << "block" << '\t';
+				break;
+			case TileType::Field:
+				std::cout << "field" << '\t';
+				break;
+			default:
+				break;
+			}
+			
+		}
+		std::cout << std::endl;
+	}
+}
+
 int main()
 {
 	int size = 5;
@@ -384,10 +472,10 @@ int main()
 	fillTileTypesGrid(tileGrid, currentRoad, start, finish);
 
 	// road type
-	RoadTypes.clear();
-	RoadTypes.resize(currentRoad.size());
+	//RoadTypes.clear();
+	//RoadTypes.resize(currentRoad.size());
 	bool success = false;
-	recognizeRoadTypes(currentRoad, RoadTypes, start, finish, success);
-
+	//recognizeRoadTypes(currentRoad, tileGrid, start, finish, success);
+	printtilestype(tileGrid);
 	return 0;
 }
