@@ -1,4 +1,4 @@
-#include <vector>
+﻿#include <vector>
 #include <iostream>
 #include <iomanip>
 #include <ctime>
@@ -36,8 +36,8 @@ enum SideType
 {
 	Up = 1,
 	Down = 2,
-	Left = 8,
-	Right = 16
+	Left = 4,
+	Right = 8
 };
 
 struct direction
@@ -48,10 +48,9 @@ struct direction
 
 struct TileInfo
 {
-	direction position = {0, 0};
 	TileType tileType = TileType::Field;
 	RoadType roadType = RoadType::None;
-	//EventType eventType = EventType::None;
+	EventType eventType = EventType::None;
 	float rotateAngle = 0.0;
 };
 
@@ -157,19 +156,19 @@ void printTilesRoadType(std::vector<std::vector<TileInfo>> tileGrid)
 			switch (elem.roadType)
 			{
 			case RoadType::None:
-				std::cout << "None" << '\t';
+				std::cout << "None" << "\t";
 				break;
 			case RoadType::Straight:
-				std::cout << "Straight" << '\t';
+				std::cout << "Straight" << "\t";
 				break;
 			case RoadType::Turn:
-				std::cout << "Turn" << '\t';
+				std::cout << "Turn" << "\t";
 				break;
 			case RoadType::T_junction:
-				std::cout << "T_junction" << '\t';
+				std::cout << "T_junction" << "\t";
 				break;
 			case RoadType::Crossroad:
-				std::cout << "Crossroad" << '\t';
+				std::cout << "Crossroad" << "\t";
 				break;
 			}
 
@@ -368,11 +367,6 @@ void fillTileTypesGrid(std::vector<std::vector <TileInfo>>& tileGrid, std::vecto
 	}
 }
 
-void recognizeRoadRotateAngle()
-{
-
-}
-
 bool isRoadThisSide(std::vector<std::vector<TileInfo>>& tileGrid, direction currentPosition, SideType SelectedSide)
 {
 	bool success = false;
@@ -380,19 +374,19 @@ bool isRoadThisSide(std::vector<std::vector<TileInfo>>& tileGrid, direction curr
 	int y_offset = 0;
 	switch (SelectedSide)
 	{
-	case Up:
+	case SideType::Up:
 		x_offset = 1;
 		y_offset = 0;
 		break;
-	case Down:
+	case SideType::Down:
 		x_offset = -1;
 		y_offset = 0;
 		break;
-	case Left:
+	case SideType::Left:
 		x_offset = 0;
 		y_offset = -1;
 		break;
-	case Right:
+	case SideType::Right:
 		x_offset = 0;
 		y_offset = 1;
 		break;
@@ -422,25 +416,74 @@ bool isRoadThisSide(std::vector<std::vector<TileInfo>>& tileGrid, direction curr
 	return success;
 }
 
-RoadType recognizeRoadTypeWithRotateAngle(int roadSides, float& rotateAngle)
+RoadType recognizeRoadTypeWithRotateAngle(int roadSides, float& rotateAngle, int countRoads)
 {
 	RoadType roadType = RoadType::None;
 
-	/*int countSides = 0;
-
-	if (roadSides & SideType::Right)
-		countSides++;
-	if (roadSides & SideType::Left)
-		countSides++;
-	if (roadSides & SideType::Up)
-		countSides++;
-	if (roadSides & SideType::Down)
-		countSides++;
-
-	if (roadSides & SideType::Up)
+	switch (countRoads)
 	{
-
-	}*/
+	default:
+	case 2:
+		if (roadSides & SideType::Up && roadSides & SideType::Down) // |
+		{
+			roadType = RoadType::Straight;
+			rotateAngle = 0.0;
+		}
+		else if (roadSides & SideType::Left && roadSides & SideType::Right) // ─
+		{
+			roadType = RoadType::Straight;
+			rotateAngle = 90.0;
+		}
+		else if (roadSides & SideType::Right)
+		{
+			roadType = RoadType::Turn;
+			if (roadSides & SideType::Up) // └
+			{
+				rotateAngle = 180.0;
+			}
+			else						 // ╔
+			{
+				rotateAngle = 90.0;
+			}
+		}
+		else
+		{
+			roadType = RoadType::Turn;
+			if (roadSides & SideType::Up) // ╝
+			{
+				rotateAngle = -90.0;
+			}
+			else						 // ┐
+			{
+				rotateAngle = 0.0;
+			}
+		}
+		break;
+	case 3:
+		roadType = RoadType::T_junction;
+		if (!(roadSides & SideType::Right)) // ┤
+		{
+			rotateAngle = -90.0;
+		}
+		else if (!(roadSides & SideType::Up)) // ┬
+		{
+			rotateAngle = 0.0;
+		}
+		else if (!(roadSides & SideType::Left)) // ├
+		{
+			rotateAngle = 90.0;
+		}
+		else									// ┴
+		{
+			rotateAngle = 180.0;
+		}
+		break;
+	case 4:
+		roadType = RoadType::Crossroad;      // ┼
+		rotateAngle = 0.0;
+		break;
+	}
+	return roadType;
 }
 
 void recognizeRoadTypes(std::vector<direction>& currentRoad, std::vector<std::vector<TileInfo>>& tileGrid, direction start, direction finish, bool& success)
@@ -453,22 +496,35 @@ void recognizeRoadTypes(std::vector<direction>& currentRoad, std::vector<std::ve
 			tileGrid[currentRoad[i].x][currentRoad[i].y].rotateAngle = 0.0;
 			continue;
 		}
-		
+
 		int roadSides = 0;
+
+		int countRoads = 0;
+		float rotateAngle = 0.0;
 		
 		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Right))
+		{
 			roadSides |= SideType::Right;
+			countRoads++;
+		}
 		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Left))
+		{
 			roadSides |= SideType::Left;
+			countRoads++;
+		}
 		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Up))
+		{
 			roadSides |= SideType::Up;
+			countRoads++;
+		}
 		if (isRoadThisSide(tileGrid, currentRoad[i], SideType::Down))
+		{
 			roadSides |= SideType::Down;
-		
-		//printRoadSides(currentRoad[i], roadSides);
+			countRoads++;
+		}
 
-		int countSides = 0;
-
+		tileGrid[currentRoad[i].x][currentRoad[i].y].roadType = recognizeRoadTypeWithRotateAngle(roadSides, rotateAngle, countRoads);
+		tileGrid[currentRoad[i].x][currentRoad[i].y].rotateAngle = rotateAngle;
 	}
 }
 
